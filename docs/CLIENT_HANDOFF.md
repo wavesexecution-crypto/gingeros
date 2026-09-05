@@ -82,6 +82,7 @@ Access the production login at: `/login`
 ## 5. Environment variables required for deployment
 
 ```
+POSTGRES_URL=       # Neon serverless Postgres connection string (required). Schema self-provisions on first request.
 AUTH_SECRET=          # Long random string (≥48 chars). Rotate only on maintenance windows.
 COOKIE_SECURE=true    # Set to true behind HTTPS in production.
 
