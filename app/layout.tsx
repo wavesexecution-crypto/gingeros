@@ -2,7 +2,7 @@ import "./globals.css";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ensureAdminSeed, ensureClientSeed, currentUser } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getDb, initSchema } from "@/lib/db";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { MobileHeader, BottomNav } from "@/components/mobile-nav";
 import { CopilotBar } from "@/components/copilot-bar";
@@ -12,6 +12,8 @@ export const metadata = { title: "Dry Ginger Sales OS", description: "B2B intern
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Provision production users from env on first request (idempotent).
+  // Schema is created first so the seeds don't hit 42P01 on a fresh database.
+  try { await initSchema(); } catch {}
   try { await ensureAdminSeed(); } catch {}
   try { await ensureClientSeed(); } catch {}
   const me = await currentUser();

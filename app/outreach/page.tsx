@@ -37,7 +37,7 @@ export default async function Outreach({ searchParams }: { searchParams: Promise
     const db2 = getDb();
     await db2.prepare("INSERT INTO communications(company_id,channel,direction,subject,body,status,created_at) VALUES(?,?,?,?,?,?,?)").run(company_id, channel, "outbound", subject, body, "logged", nowISO());
     await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, channel.toLowerCase(), `${channel} logged — ${subject}`.slice(0, 120), body.slice(0, 500), "Sales", nowISO());
-    await db2.prepare("UPDATE companies SET outreach_status=CASE WHEN outreach_status='Not contacted' THEN 'Contacted' ELSE outreach_status END, last_activity=date('now') WHERE id=?").run(company_id);
+    await db2.prepare("UPDATE companies SET outreach_status=CASE WHEN outreach_status='Not contacted' THEN 'Contacted' ELSE outreach_status END, last_activity=CURRENT_DATE WHERE id=?").run(company_id);
     redirect("/outreach" + (filter ? `?status=${encodeURIComponent(filter)}` : ""));
   }
 

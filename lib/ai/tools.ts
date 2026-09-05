@@ -173,9 +173,9 @@ export const get_followups = {
   schema: z.object({ scope: z.enum(["overdue", "today", "upcoming", "all"]).default("all"), limit: z.number().int().min(1).max(50).default(20) }),
   async run(_a: Actor, args: any) {
     const sel = "SELECT f.id,f.title,f.due_date,f.owner,f.company_id,c.name cname FROM followups f JOIN companies c ON c.id=f.company_id WHERE f.done=0";
-    const overdue = await db().prepare(`${sel} AND f.due_date < date('now') ORDER BY f.due_date`).all() as Row[];
-    const today = await db().prepare(`${sel} AND f.due_date = date('now') ORDER BY f.id`).all() as Row[];
-    const upcoming = await db().prepare(`${sel} AND f.due_date > date('now') ORDER BY f.due_date LIMIT 100`).all() as Row[];
+    const overdue = await db().prepare(`${sel} AND f.due_date < CURRENT_DATE ORDER BY f.due_date`).all() as Row[];
+    const today = await db().prepare(`${sel} AND f.due_date = CURRENT_DATE ORDER BY f.id`).all() as Row[];
+    const upcoming = await db().prepare(`${sel} AND f.due_date > CURRENT_DATE ORDER BY f.due_date LIMIT 100`).all() as Row[];
     const scope = args.scope ?? "all";
     const pick = scope === "overdue" ? overdue : scope === "today" ? today : scope === "upcoming" ? upcoming : [...overdue, ...today, ...upcoming];
     return { overdue: overdue.length, today: today.length, upcoming: upcoming.length, items: pick.slice(0, args.limit ?? 20) };
@@ -229,7 +229,7 @@ export const get_stalled = {
   description: "Buyers contacted but with no activity for N+ days (default 7).",
   schema: z.object({ days: z.number().int().min(1).max(90).default(7), limit: z.number().int().min(1).max(50).default(15) }),
   async run(_a: Actor, args: any) {
-    const rows = await db().prepare("SELECT id,name,country,grade,qual_score,buyer_status,last_activity FROM companies WHERE outreach_status NOT IN ('Not contacted') AND (last_activity IS NULL OR last_activity='' OR date(last_activity) <= date('now', ?)) ORDER BY qual_score DESC").all(`-${args.days ?? 7} days`) as Row[];
+    const rows = await db().prepare("SELECT id,name,country,grade,qual_score,buyer_status,last_activity FROM companies WHERE outreach_status NOT IN ('Not contacted') AND (last_activity IS NULL OR last_activity='' OR last_activity::date <= CURRENT_DATE - ($1 || ' days')::interval) ORDER BY qual_score DESC").all(String(args.days ?? 7)) as Row[];
     return { count: rows.length, stalled: rows.slice(0, args.limit ?? 15) };
   },
 };
@@ -240,7 +240,7 @@ export const sales_brief = {
   async run() {
     const f = await get_followups.run({} as Actor, { scope: "all", limit: 50 }) as { overdue: number; today: number; upcoming: number; items: Row[] };
     const hot = await db().prepare("SELECT id,name,country,grade,qual_score,buyer_status FROM companies WHERE grade='A' ORDER BY qual_score DESC LIMIT 5").all() as Row[];
-    const newW = await db().prepare("SELECT id,name,country FROM companies WHERE date(date_discovered) >= date('now','-7 days') ORDER BY date_discovered DESC LIMIT 5").all() as Row[];
+    const newW = await db().prepare("SELECT id,name,country FROM companies WHERE date_discovered::date >= CURRENT_DATE - INTERVAL '7 days' ORDER BY date_discovered DESC LIMIT 5").all() as Row[];
     const opps = await db().prepare("SELECT o.id,o.stage,o.value,o.currency,o.next_action,c.name cname FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE o.stage NOT IN ('Won','Lost','Not Relevant') ORDER BY o.value DESC LIMIT 5").all() as Row[];
     const enqs = await db().prepare("SELECT e.id,e.status,c.name cname FROM enquiries e JOIN companies c ON c.id=e.company_id WHERE e.status NOT IN ('Won','Lost') ORDER BY e.id DESC LIMIT 5").all() as Row[];
     const stalled = await get_stalled.run({} as Actor, { days: 7, limit: 3 }) as { count: number };

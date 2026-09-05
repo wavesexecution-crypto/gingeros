@@ -41,9 +41,9 @@ function Section({ title, items, hint }: { title: string; items: Fup[]; hint: st
 export default async function Followups() {
   const db = getDb();
   const sel = "SELECT f.id,f.title,f.due_date,f.owner,f.company_id,c.name cname FROM followups f JOIN companies c ON c.id=f.company_id WHERE f.done=0";
-  const overdue = await db.prepare(`${sel} AND f.due_date < date('now') ORDER BY f.due_date`).all() as unknown as Fup[];
-  const today = await db.prepare(`${sel} AND f.due_date = date('now') ORDER BY f.id`).all() as unknown as Fup[];
-  const upcoming = await db.prepare(`${sel} AND f.due_date > date('now') ORDER BY f.due_date LIMIT 100`).all() as unknown as Fup[];
+  const overdue = await db.prepare(`${sel} AND f.due_date < CURRENT_DATE ORDER BY f.due_date`).all() as unknown as Fup[];
+  const today = await db.prepare(`${sel} AND f.due_date = CURRENT_DATE ORDER BY f.id`).all() as unknown as Fup[];
+  const upcoming = await db.prepare(`${sel} AND f.due_date > CURRENT_DATE ORDER BY f.due_date LIMIT 100`).all() as unknown as Fup[];
   const companies = await db.prepare("SELECT id,name FROM companies ORDER BY name").all() as unknown as { id: number; name: string }[];
 
   async function add(form: FormData) {

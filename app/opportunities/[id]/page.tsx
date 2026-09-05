@@ -21,7 +21,7 @@ export default async function OpportunityDetail({ params }: { params: Promise<{ 
     const prob = Math.min(100, Math.max(0, Number(form.get("probability") ?? 0) || 0));
     const next = String(form.get("next_action") ?? "");
     const db2 = getDb();
-    await db2.prepare("UPDATE opportunities SET stage=?, probability=?, next_action=?, last_activity=date('now') WHERE id=?").run(stage, prob, next, Number(id));
+    await db2.prepare("UPDATE opportunities SET stage=?, probability=?, next_action=?, last_activity=CURRENT_DATE WHERE id=?").run(stage, prob, next, Number(id));
     await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(cid, "system", `Opportunity #${id} → ${stage} (${prob}%)`, next, "Sales", nowISO());
     redirect(`/opportunities/${id}`);
   }

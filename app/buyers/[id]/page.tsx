@@ -30,7 +30,7 @@ export default async function BuyerProfile({ params }: { params: Promise<{ id: s
     const body = String(form.get("body") ?? "");
     const db2 = getDb();
     await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), kind, title, body, "Sales", nowISO());
-    await db2.prepare("UPDATE companies SET last_activity=date('now') WHERE id=?").run(Number(id));
+    await db2.prepare("UPDATE companies SET last_activity=CURRENT_DATE WHERE id=?").run(Number(id));
     redirect(`/buyers/${id}`);
   }
 
@@ -152,7 +152,7 @@ function MoveStage({ id, current, outreach }: { id: string; current: string; out
     "use server";
     const db = getDb();
     const s = String(f.get("stage") ?? current), o = String(f.get("outreach") ?? outreach);
-    await db.prepare("UPDATE companies SET buyer_status=?, outreach_status=?, last_activity=date('now') WHERE id=?").run(s, o, Number(id));
+    await db.prepare("UPDATE companies SET buyer_status=?, outreach_status=?, last_activity=CURRENT_DATE WHERE id=?").run(s, o, Number(id));
     await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), "system", `Stage → ${s} / ${o}`, "", "Sales", nowISO());
     redirect(`/buyers/${id}`);
   }

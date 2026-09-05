@@ -28,7 +28,7 @@ export default async function CountryIntel({ params }: { params: Promise<{ code:
     "use server";
     const notes = String(form.get("notes") ?? "");
     const { getDb: gdb } = await import("@/lib/db");
-    await gdb().prepare("UPDATE markets SET notes=?, updated_at=date('now') WHERE code=?").run(notes, code);
+    await gdb().prepare("UPDATE markets SET notes=?, updated_at=CURRENT_DATE WHERE code=?").run(notes, code);
     redirect(`/countries/${code}`);
   }
 

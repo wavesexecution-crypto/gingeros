@@ -21,7 +21,7 @@ function secret() { return process.env.AUTH_SECRET || "dev-only-change-me-ginger
 
 export async function ensureAuditTable() {
   await getDb().exec(`CREATE TABLE IF NOT EXISTS ai_audit(
-    id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL,
+    id SERIAL PRIMARY KEY, created_at TEXT NOT NULL,
     user_email TEXT DEFAULT '', user_request TEXT DEFAULT '', tool TEXT NOT NULL,
     target TEXT DEFAULT '', args_json TEXT DEFAULT '', result TEXT DEFAULT '',
     undone INTEGER DEFAULT 0, inverse_json TEXT DEFAULT '')`);
