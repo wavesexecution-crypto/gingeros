@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getDb, initSchema, nowISO } from "./db";
+import { getDb, ensureSchema, nowISO } from "./db";
 
 const COOKIE = "ginger_session";
 
@@ -68,10 +68,10 @@ export async function ensureClientSeed() {
 }
 
 export async function login(email: string, password: string) {
-  // Self-provision the Postgres schema on first request (idempotent).
+  // Self-provision the Postgres schema on first request (idempotent, cached per instance).
   // Without this the very first SELECT on an empty Neon database throws
   // NeonDbError 42P01: relation "users" does not exist.
-  await initSchema();
+  await ensureSchema();
   await ensureAdminSeed();
   await ensureClientSeed();
   const db = getDb();

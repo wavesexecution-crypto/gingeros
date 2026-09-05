@@ -9,11 +9,24 @@
 // safe to call at module level (it caches the pool).
 import { neon, type QueryResult } from "@neondatabase/serverless";
 
-const connectionString =
+// Sanitize the connection string: `vercel env pull` writes values wrapped in
+// double quotes (POSTGRES_URL="postgresql://..."), and a naive import of that
+// file (e.g. push.bat) keeps the literal quotes. neon() then throws
+// "not a valid URL". Strip surrounding quotes/whitespace defensively.
+function cleanConnectionString(raw: string): string {
+  let v = raw.trim();
+  if (v.length >= 2 && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))) {
+    v = v.slice(1, -1).trim();
+  }
+  return v;
+}
+
+const connectionString = cleanConnectionString(
   process.env.POSTGRES_URL ||
   process.env.DATABASE_URL ||
   process.env.POSTGRES_URL_NON_POOLING ||
-  "";
+  ""
+);
 
 // Lazy-init the sql function to avoid connecting at build time
 let _sql: ReturnType<typeof neon> | null = null;
@@ -36,6 +49,25 @@ function pg(query: string, params: unknown[]): { text: string; values: unknown[]
   return { text, values: params };
 }
 
+// The neon() HTTP client resolves .query() to the ROWS ARRAY directly when
+// fullResults is false (see processQueryResult in @neondatabase/serverless),
+// NOT to a { rows, rowCount } object. Normalize both shapes here so every
+// caller keeps working regardless of driver response shape.
+function asRows<T>(result: unknown): T[] {
+  if (Array.isArray(result)) return result as T[];
+  if (result && typeof result === "object" && Array.isArray((result as { rows?: unknown }).rows)) {
+    return (result as { rows: T[] }).rows;
+  }
+  return [];
+}
+
+function asRowCount(result: unknown): number {
+  if (result && typeof result === "object" && typeof (result as { rowCount?: unknown }).rowCount === "number") {
+    return (result as { rowCount: number }).rowCount;
+  }
+  return 0;
+}
+
 // Query helpers (async - Postgres requires a network round-trip)
 export async function q<T = Record<string, unknown>>(
   query: string,
@@ -43,7 +75,7 @@ export async function q<T = Record<string, unknown>>(
 ): Promise<T[]> {
   const { text, values } = pg(query, params);
   const result = (await getSql().query(text, values as never[])) as unknown as QueryResult<Record<string, unknown>>;
-  return result.rows as unknown as T[];
+  return asRows<T>(result);
 }
 
 export async function q1<T = Record<string, unknown>>(
@@ -57,14 +89,14 @@ export async function q1<T = Record<string, unknown>>(
 export async function exec(query: string, ...params: unknown[]): Promise<number> {
   const { text, values } = pg(query, params);
   const result = (await getSql().query(text, values as never[])) as unknown as QueryResult<Record<string, unknown>>;
-  return result.rowCount ?? 0;
+  return asRowCount(result);
 }
 
 export async function insertGetId(query: string, ...params: unknown[]): Promise<number> {
   const { text, values } = pg(query, params);
   const finalQuery = /RETURNING/i.test(text) ? text : `${text} RETURNING id`;
   const result = (await getSql().query(finalQuery, values as never[])) as unknown as QueryResult<Record<string, unknown>>;
-  return Number((result.rows as Array<Record<string, unknown>>)[0]?.id ?? 0);
+  return Number(asRows<Record<string, unknown>>(result)[0]?.id ?? 0);
 }
 
 // Compatibility layer for callers that use db.prepare().get/all/run()
@@ -199,4 +231,19 @@ export async function initSchemaPart2() {
     `CREATE INDEX IF NOT EXISTS idx_opp_stage ON opportunities(stage)`,
   ];
   for (const s of stmts) await exec(s);
+}
+
+// Cached schema provisioning: ~20 sequential Neon round-trips are expensive,
+// so run them once per server instance instead of on every request. The cache
+// resets on failure so a later request retries (e.g. transient "Connection
+// closed" or missing env at build time — build prerenders must never poison it).
+let schemaPromise: Promise<void> | null = null;
+export function ensureSchema(): Promise<void> {
+  if (!schemaPromise) {
+    schemaPromise = initSchema().catch((e) => {
+      schemaPromise = null;
+      throw e;
+    });
+  }
+  return schemaPromise;
 }

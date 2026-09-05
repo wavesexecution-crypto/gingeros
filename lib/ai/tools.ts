@@ -173,9 +173,9 @@ export const get_followups = {
   schema: z.object({ scope: z.enum(["overdue", "today", "upcoming", "all"]).default("all"), limit: z.number().int().min(1).max(50).default(20) }),
   async run(_a: Actor, args: any) {
     const sel = "SELECT f.id,f.title,f.due_date,f.owner,f.company_id,c.name cname FROM followups f JOIN companies c ON c.id=f.company_id WHERE f.done=0";
-    const overdue = await db().prepare(`${sel} AND f.due_date < CURRENT_DATE ORDER BY f.due_date`).all() as Row[];
-    const today = await db().prepare(`${sel} AND f.due_date = CURRENT_DATE ORDER BY f.id`).all() as Row[];
-    const upcoming = await db().prepare(`${sel} AND f.due_date > CURRENT_DATE ORDER BY f.due_date LIMIT 100`).all() as Row[];
+    const overdue = await db().prepare(`${sel} AND NULLIF(f.due_date, '')::date < CURRENT_DATE ORDER BY f.due_date`).all() as Row[];
+    const today = await db().prepare(`${sel} AND NULLIF(f.due_date, '')::date = CURRENT_DATE ORDER BY f.id`).all() as Row[];
+    const upcoming = await db().prepare(`${sel} AND NULLIF(f.due_date, '')::date > CURRENT_DATE ORDER BY f.due_date LIMIT 100`).all() as Row[];
     const scope = args.scope ?? "all";
     const pick = scope === "overdue" ? overdue : scope === "today" ? today : scope === "upcoming" ? upcoming : [...overdue, ...today, ...upcoming];
     return { overdue: overdue.length, today: today.length, upcoming: upcoming.length, items: pick.slice(0, args.limit ?? 20) };

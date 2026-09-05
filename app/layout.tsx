@@ -2,7 +2,7 @@ import "./globals.css";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ensureAdminSeed, ensureClientSeed, currentUser } from "@/lib/auth";
-import { getDb, initSchema } from "@/lib/db";
+import { getDb, ensureSchema } from "@/lib/db";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { MobileHeader, BottomNav } from "@/components/mobile-nav";
 import { CopilotBar } from "@/components/copilot-bar";
@@ -13,14 +13,14 @@ export const metadata = { title: "Dry Ginger Sales OS", description: "B2B intern
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Provision production users from env on first request (idempotent).
   // Schema is created first so the seeds don't hit 42P01 on a fresh database.
-  try { await initSchema(); } catch {}
+  try { await ensureSchema(); } catch {}
   try { await ensureAdminSeed(); } catch {}
   try { await ensureClientSeed(); } catch {}
   const me = await currentUser();
   let overdue = 0;
   try {
     const db = getDb();
-    const r = (await db.prepare("SELECT COUNT(*) c FROM followups WHERE done=0 AND due_date < CURRENT_DATE").get()) as { c: number } | undefined;
+    const r = (await db.prepare("SELECT COUNT(*) c FROM followups WHERE done=0 AND NULLIF(due_date, '')::date < CURRENT_DATE").get()) as { c: number } | undefined;
     overdue = r?.c ?? 0;
   } catch {}
   return (
