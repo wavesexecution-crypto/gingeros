@@ -17,9 +17,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "company_id is required" }, { status: 400 });
   }
   const db = getDb();
-  const c = db.prepare("SELECT id FROM companies WHERE id=?").get(company_id) as { id: number } | undefined;
+  const c = (await db.prepare("SELECT id FROM companies WHERE id=?").get(company_id)) as { id: number } | undefined;
   if (!c) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  const r = db.prepare("INSERT INTO enquiries(company_id,country,product,qty,packaging,destination,specs,certs,target_price,delivery,payment_terms,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+  const r = await db.prepare("INSERT INTO enquiries(company_id,country,product,qty,packaging,destination,specs,certs,target_price,delivery,payment_terms,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
     company_id,
     String(body.country ?? ""),
     String(body.product ?? "Dry Ginger"),
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     nowISO()
   );
   const id = Number(r.lastInsertRowid);
-  db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
+  await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
     company_id, "system", "Enquiry created", `Enquiry #${id} logged`, "Sales", nowISO()
   );
   return NextResponse.json({ id }, { status: 201 });
@@ -57,8 +57,8 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Valid id and status are required" }, { status: 400 });
   }
   const db = getDb();
-  const e = db.prepare("SELECT id FROM enquiries WHERE id=?").get(id) as { id: number } | undefined;
+  const e = (await db.prepare("SELECT id FROM enquiries WHERE id=?").get(id)) as { id: number } | undefined;
   if (!e) return NextResponse.json({ error: "Enquiry not found" }, { status: 404 });
-  db.prepare("UPDATE enquiries SET status=? WHERE id=?").run(status, id);
+  await db.prepare("UPDATE enquiries SET status=? WHERE id=?").run(status, id);
   return NextResponse.json({ ok: true });
 }

@@ -8,27 +8,27 @@ export const dynamic = "force-dynamic";
 export default async function CountryIntel({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const db = getDb();
-  const market = db.prepare("SELECT * FROM markets WHERE code=?").get(code) as { code: string; name: string; region: string; notes: string; sources: string; updated_at: string } | undefined;
+  const market = (await db.prepare("SELECT * FROM markets WHERE code=?").get(code)) as { code: string; name: string; region: string; notes: string; sources: string; updated_at: string } | undefined;
   if (!market) return notFound();
   const country = market.name;
 
-  const one = (sql: string) => (db.prepare(sql).get(country) as { c: number }).c;
-  const buyers = one("SELECT COUNT(*) c FROM companies WHERE country=?");
-  const qualified = one("SELECT COUNT(*) c FROM companies WHERE country=? AND grade='A'");
-  const contacted = one("SELECT COUNT(*) c FROM companies WHERE country=? AND outreach_status != 'Not contacted'");
-  const activeOpps = (db.prepare("SELECT COUNT(*) c FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage NOT IN ('Won','Lost')").get(country) as { c: number }).c;
-  const won = (db.prepare("SELECT COUNT(*) c FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage='Won'").get(country) as { c: number }).c;
+  const one = async (sql: string) => (await db.prepare(sql).get(country) as { c: number }).c;
+  const buyers = await one("SELECT COUNT(*) c FROM companies WHERE country=?");
+  const qualified = await one("SELECT COUNT(*) c FROM companies WHERE country=? AND grade='A'");
+  const contacted = await one("SELECT COUNT(*) c FROM companies WHERE country=? AND outreach_status != 'Not contacted'");
+  const activeOpps = (await db.prepare("SELECT COUNT(*) c FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage NOT IN ('Won','Lost')").get(country) as { c: number }).c;
+  const won = (await db.prepare("SELECT COUNT(*) c FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage='Won'").get(country) as { c: number }).c;
 
-  const types = db.prepare("SELECT company_type t, COUNT(*) c FROM companies WHERE country=? GROUP BY company_type ORDER BY c DESC").all(country) as { t: string; c: number }[];
-  const top = db.prepare("SELECT * FROM companies WHERE country=? ORDER BY qual_score DESC, name LIMIT 8").all(country) as Record<string, unknown>[];
-  const opps = db.prepare("SELECT o.*, c.name cname FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage NOT IN ('Won','Lost') ORDER BY o.value DESC").all(country) as Record<string, unknown>[];
-  const acts = db.prepare("SELECT a.*, c.name cname FROM activities a JOIN companies c ON c.id=a.company_id WHERE c.country=? ORDER BY a.created_at DESC LIMIT 15").all(country) as Record<string, unknown>[];
+  const types = await db.prepare("SELECT company_type t, COUNT(*) c FROM companies WHERE country=? GROUP BY company_type ORDER BY c DESC").all(country) as { t: string; c: number }[];
+  const top = await db.prepare("SELECT * FROM companies WHERE country=? ORDER BY qual_score DESC, name LIMIT 8").all(country) as Record<string, unknown>[];
+  const opps = await db.prepare("SELECT o.*, c.name cname FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage NOT IN ('Won','Lost') ORDER BY o.value DESC").all(country) as Record<string, unknown>[];
+  const acts = await db.prepare("SELECT a.*, c.name cname FROM activities a JOIN companies c ON c.id=a.company_id WHERE c.country=? ORDER BY a.created_at DESC LIMIT 15").all(country) as Record<string, unknown>[];
 
   async function saveNotes(form: FormData) {
     "use server";
     const notes = String(form.get("notes") ?? "");
     const { getDb: gdb } = await import("@/lib/db");
-    gdb().prepare("UPDATE markets SET notes=?, updated_at=date('now') WHERE code=?").run(notes, code);
+    await gdb().prepare("UPDATE markets SET notes=?, updated_at=date('now') WHERE code=?").run(notes, code);
     redirect(`/countries/${code}`);
   }
 

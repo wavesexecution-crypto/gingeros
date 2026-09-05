@@ -36,10 +36,10 @@ export async function ensureAdminSeed() {
     }
     return;
   }
-  const exists = db.prepare("SELECT id FROM users WHERE email=?").get(email) as { id: number } | undefined;
+  const exists = (await db.prepare("SELECT id FROM users WHERE email=?").get(email)) as { id: number } | undefined;
   if (!exists) {
     const hash = await bcrypt.hash(password, 10);
-    db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run(
+    await db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run(
       email, "Waves Admin", "admin", hash, nowISO()
     );
   }
@@ -58,10 +58,10 @@ export async function ensureClientSeed() {
     }
     return;
   }
-  const exists = db.prepare("SELECT id FROM users WHERE email=?").get(email) as { id: number } | undefined;
+  const exists = (await db.prepare("SELECT id FROM users WHERE email=?").get(email)) as { id: number } | undefined;
   if (!exists) {
     const hash = await bcrypt.hash(password, 10);
-    db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run(
+    await db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run(
       email, process.env.CLIENT_NAME || "Dry Ginger Client", "sales", hash, nowISO()
     );
   }
@@ -71,7 +71,7 @@ export async function login(email: string, password: string) {
   await ensureAdminSeed();
   await ensureClientSeed();
   const db = getDb();
-  const u = db.prepare("SELECT * FROM users WHERE email=?").get(email) as
+  const u = (await db.prepare("SELECT * FROM users WHERE email=?").get(email)) as
     | { id: number; email: string; name: string; role: string; password_hash: string } | undefined;
   if (!u) return null;
   const ok = await bcrypt.compare(password, u.password_hash);

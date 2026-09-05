@@ -18,8 +18,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let overdue = 0;
   try {
     const db = getDb();
-    const r = db.prepare("SELECT COUNT(*) c FROM followups WHERE done=0 AND due_date < date('now')").get() as { c: number };
-    overdue = r.c;
+    const r = (await db.prepare("SELECT COUNT(*) c FROM followups WHERE done=0 AND due_date < CURRENT_DATE").get()) as { c: number } | undefined;
+    overdue = r?.c ?? 0;
   } catch {}
   return (
     <html lang="en">

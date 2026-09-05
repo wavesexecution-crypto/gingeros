@@ -11,8 +11,8 @@ function Row({ f }: { f: Fup }) {
   async function done() {
     "use server";
     const db = getDb();
-    db.prepare("UPDATE followups SET done=1 WHERE id=?").run(f.id);
-    db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
+    await db.prepare("UPDATE followups SET done=1 WHERE id=?").run(f.id);
+    await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
       f.company_id, "system", `Follow-up done — ${f.title}`, "", "Sales", nowISO());
     redirect("/followups");
   }
@@ -41,10 +41,10 @@ function Section({ title, items, hint }: { title: string; items: Fup[]; hint: st
 export default async function Followups() {
   const db = getDb();
   const sel = "SELECT f.id,f.title,f.due_date,f.owner,f.company_id,c.name cname FROM followups f JOIN companies c ON c.id=f.company_id WHERE f.done=0";
-  const overdue = db.prepare(`${sel} AND f.due_date < date('now') ORDER BY f.due_date`).all() as unknown as Fup[];
-  const today = db.prepare(`${sel} AND f.due_date = date('now') ORDER BY f.id`).all() as unknown as Fup[];
-  const upcoming = db.prepare(`${sel} AND f.due_date > date('now') ORDER BY f.due_date LIMIT 100`).all() as unknown as Fup[];
-  const companies = db.prepare("SELECT id,name FROM companies ORDER BY name").all() as unknown as { id: number; name: string }[];
+  const overdue = await db.prepare(`${sel} AND f.due_date < date('now') ORDER BY f.due_date`).all() as unknown as Fup[];
+  const today = await db.prepare(`${sel} AND f.due_date = date('now') ORDER BY f.id`).all() as unknown as Fup[];
+  const upcoming = await db.prepare(`${sel} AND f.due_date > date('now') ORDER BY f.due_date LIMIT 100`).all() as unknown as Fup[];
+  const companies = await db.prepare("SELECT id,name FROM companies ORDER BY name").all() as unknown as { id: number; name: string }[];
 
   async function add(form: FormData) {
     "use server";
@@ -53,9 +53,9 @@ export default async function Followups() {
     const due = String(form.get("due") ?? "");
     if (!company_id || !title || !due) return;
     const db2 = getDb();
-    db2.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(
+    await db2.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(
       company_id, title, due, 0, String(form.get("owner") ?? "Sales"), "", nowISO());
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
       company_id, "system", `Follow-up set — ${title} (due ${due})`, "", "Sales", nowISO());
     redirect("/followups");
   }

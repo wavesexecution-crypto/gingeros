@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     params.push(grade);
   }
   const sql = `SELECT * FROM companies${where.length ? " WHERE " + where.join(" AND ") : ""} ORDER BY qual_score DESC, id DESC LIMIT 200`;
-  const companies = db.prepare(sql).all(...params);
+  const companies = await db.prepare(sql).all(...params);
   return NextResponse.json({ companies });
 }
 
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     buyingSignals: 0,
   });
   const db = getDb();
-  const r = db.prepare(`INSERT INTO companies(name,country,city,website,company_type,industry,products,ginger_fit,import_relevance,size,source,source_url,date_discovered,evidence,buyer_status,qual_score,grade,priority,outreach_status,last_activity,owner,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  const r = await db.prepare(`INSERT INTO companies(name,country,city,website,company_type,industry,products,ginger_fit,import_relevance,size,source,source_url,date_discovered,evidence,buyer_status,qual_score,grade,priority,outreach_status,last_activity,owner,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     name,
     country,
     String(body.city ?? ""),
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     "MANUAL"
   );
   const id = Number(r.lastInsertRowid);
-  db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
+  await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
     id, "system", "Buyer added via API", `Score ${score}/100 grade ${grade}`, "System", nowISO()
   );
   return NextResponse.json({ id, score, grade }, { status: 201 });

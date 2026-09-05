@@ -11,7 +11,7 @@ const STAGES = [...PIPELINE_STAGES];
 export default async function OpportunityDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = getDb();
-  const o = db.prepare("SELECT o.*, co.name AS cname, co.country AS ccountry FROM opportunities o JOIN companies co ON co.id=o.company_id WHERE o.id=?").get(id) as Record<string, unknown> | undefined;
+  const o = (await db.prepare("SELECT o.*, co.name AS cname, co.country AS ccountry FROM opportunities o JOIN companies co ON co.id=o.company_id WHERE o.id=?").get(id)) as Record<string, unknown> | undefined;
   if (!o) return notFound();
   const cid = Number(o.company_id);
 
@@ -21,8 +21,8 @@ export default async function OpportunityDetail({ params }: { params: Promise<{ 
     const prob = Math.min(100, Math.max(0, Number(form.get("probability") ?? 0) || 0));
     const next = String(form.get("next_action") ?? "");
     const db2 = getDb();
-    db2.prepare("UPDATE opportunities SET stage=?, probability=?, next_action=?, last_activity=date('now') WHERE id=?").run(stage, prob, next, Number(id));
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(cid, "system", `Opportunity #${id} → ${stage} (${prob}%)`, next, "Sales", nowISO());
+    await db2.prepare("UPDATE opportunities SET stage=?, probability=?, next_action=?, last_activity=date('now') WHERE id=?").run(stage, prob, next, Number(id));
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(cid, "system", `Opportunity #${id} → ${stage} (${prob}%)`, next, "Sales", nowISO());
     redirect(`/opportunities/${id}`);
   }
 

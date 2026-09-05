@@ -12,11 +12,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     const db = getDb();
     const inc = (...vals: unknown[]) => vals.some((v) => String(v ?? "").toLowerCase().includes(needle));
     groups = {
-      companies: (db.prepare("SELECT id, name, city, country, products FROM companies").all() as Record<string, unknown>[]).filter((r) => inc(r.name, r.city, r.country, r.products)).slice(0, 20),
-      contacts: (db.prepare("SELECT t.*, c.name cname FROM contacts t JOIN companies c ON c.id=t.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.name, r.email, r.role)).slice(0, 20),
-      opportunities: (db.prepare("SELECT o.*, c.name cname FROM opportunities o JOIN companies c ON c.id=o.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.product, r.next_action, r.cname)).slice(0, 20),
-      enquiries: (db.prepare("SELECT e.*, c.name cname FROM enquiries e JOIN companies c ON c.id=e.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.product, r.destination, r.cname)).slice(0, 20),
-      quotes: (db.prepare("SELECT q.*, c.name cname FROM quotes q JOIN companies c ON c.id=q.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.product, r.destination, r.cname)).slice(0, 20),
+      companies: (await db.prepare("SELECT id, name, city, country, products FROM companies").all() as Record<string, unknown>[]).filter((r) => inc(r.name, r.city, r.country, r.products)).slice(0, 20),
+      contacts: (await db.prepare("SELECT t.*, c.name cname FROM contacts t JOIN companies c ON c.id=t.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.name, r.email, r.role)).slice(0, 20),
+      opportunities: (await db.prepare("SELECT o.*, c.name cname FROM opportunities o JOIN companies c ON c.id=o.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.product, r.next_action, r.cname)).slice(0, 20),
+      enquiries: (await db.prepare("SELECT e.*, c.name cname FROM enquiries e JOIN companies c ON c.id=e.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.product, r.destination, r.cname)).slice(0, 20),
+      quotes: (await db.prepare("SELECT q.*, c.name cname FROM quotes q JOIN companies c ON c.id=q.company_id").all() as Record<string, unknown>[]).filter((r) => inc(r.product, r.destination, r.cname)).slice(0, 20),
     };
   }
   return (

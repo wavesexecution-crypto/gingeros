@@ -10,7 +10,7 @@ const STATUSES = ["New", "Qualified", "Quotation Required", "Quotation Sent", "N
 export default async function EnquiryDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = getDb();
-  const e = db.prepare("SELECT e.*, co.name AS cname, c.name AS contact_name FROM enquiries e JOIN companies co ON co.id=e.company_id LEFT JOIN contacts c ON c.id=e.contact_id WHERE e.id=?").get(id) as Record<string, unknown> | undefined;
+  const e = (await db.prepare("SELECT e.*, co.name AS cname, c.name AS contact_name FROM enquiries e JOIN companies co ON co.id=e.company_id LEFT JOIN contacts c ON c.id=e.contact_id WHERE e.id=?").get(id)) as Record<string, unknown> | undefined;
   if (!e) return notFound();
   const cid = Number(e.company_id);
 
@@ -18,8 +18,8 @@ export default async function EnquiryDetail({ params }: { params: Promise<{ id: 
     "use server";
     const s = String(form.get("status") ?? "New");
     const db2 = getDb();
-    db2.prepare("UPDATE enquiries SET status=? WHERE id=?").run(s, Number(id));
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(cid, "system", `Enquiry #${id} → ${s}`, "", "Sales", nowISO());
+    await db2.prepare("UPDATE enquiries SET status=? WHERE id=?").run(s, Number(id));
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(cid, "system", `Enquiry #${id} → ${s}`, "", "Sales", nowISO());
     redirect(`/enquiries/${id}`);
   }
 

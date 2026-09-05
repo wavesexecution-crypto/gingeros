@@ -18,9 +18,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "company_id, title and due_date are required" }, { status: 400 });
   }
   const db = getDb();
-  const c = db.prepare("SELECT id FROM companies WHERE id=?").get(company_id) as { id: number } | undefined;
+  const c = (await db.prepare("SELECT id FROM companies WHERE id=?").get(company_id)) as { id: number } | undefined;
   if (!c) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  const r = db.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(
+  const r = await db.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(
     company_id, title, due_date, 0,
     String(body.owner ?? "Unassigned"),
     String(body.notes ?? ""),
@@ -44,8 +44,8 @@ export async function PATCH(req: Request) {
   }
   const done = body.done === true || body.done === 1 || body.done === "1" ? 1 : 0;
   const db = getDb();
-  const f = db.prepare("SELECT id FROM followups WHERE id=?").get(id) as { id: number } | undefined;
+  const f = (await db.prepare("SELECT id FROM followups WHERE id=?").get(id)) as { id: number } | undefined;
   if (!f) return NextResponse.json({ error: "Follow-up not found" }, { status: 404 });
-  db.prepare("UPDATE followups SET done=? WHERE id=?").run(done, id);
+  await db.prepare("UPDATE followups SET done=? WHERE id=?").run(done, id);
   return NextResponse.json({ ok: true });
 }

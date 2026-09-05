@@ -11,8 +11,8 @@ export default async function Enquiries({ searchParams }: { searchParams: Promis
   const status = sp.status ?? "";
   const db = getDb();
   const rows = (status
-    ? db.prepare("SELECT e.*, co.name AS cname FROM enquiries e JOIN companies co ON co.id=e.company_id WHERE e.status=? ORDER BY e.id DESC").all(status)
-    : db.prepare("SELECT e.*, co.name AS cname FROM enquiries e JOIN companies co ON co.id=e.company_id ORDER BY e.id DESC").all()) as Record<string, unknown>[];
+    ? await db.prepare("SELECT e.*, co.name AS cname FROM enquiries e JOIN companies co ON co.id=e.company_id WHERE e.status=? ORDER BY e.id DESC").all(status)
+    : await db.prepare("SELECT e.*, co.name AS cname FROM enquiries e JOIN companies co ON co.id=e.company_id ORDER BY e.id DESC").all()) as Record<string, unknown>[];
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">

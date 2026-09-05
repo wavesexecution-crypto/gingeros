@@ -7,16 +7,16 @@ type Market = { code: string; name: string; region: string; notes: string; sourc
 
 export default async function Markets() {
   const db = getDb();
-  const markets = db.prepare("SELECT * FROM markets ORDER BY region, name").all() as Market[];
+  const markets = await db.prepare("SELECT * FROM markets ORDER BY region, name").all() as Market[];
 
-  const rows = markets.map((m) => {
-    const buyers = (db.prepare("SELECT COUNT(*) c FROM companies WHERE country=?").get(m.name) as { c: number }).c;
-    const importers = (db.prepare("SELECT COUNT(*) c FROM companies WHERE country=? AND company_type='Importer'").get(m.name) as { c: number }).c;
-    const qualified = (db.prepare("SELECT COUNT(*) c FROM companies WHERE country=? AND grade='A'").get(m.name) as { c: number }).c;
-    const activeOpps = (db.prepare("SELECT COUNT(*) c FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage NOT IN ('Won','Lost')").get(m.name) as { c: number }).c;
-    const exporterPresence = (db.prepare("SELECT COUNT(*) c FROM exporters WHERE export_markets LIKE ?").get(`%${m.name}%`) as { c: number }).c;
+  const rows = await Promise.all(markets.map(async (m) => {
+    const buyers = (await db.prepare("SELECT COUNT(*) c FROM companies WHERE country=?").get(m.name) as { c: number }).c;
+    const importers = (await db.prepare("SELECT COUNT(*) c FROM companies WHERE country=? AND company_type='Importer'").get(m.name) as { c: number }).c;
+    const qualified = (await db.prepare("SELECT COUNT(*) c FROM companies WHERE country=? AND grade='A'").get(m.name) as { c: number }).c;
+    const activeOpps = (await db.prepare("SELECT COUNT(*) c FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE c.country=? AND o.stage NOT IN ('Won','Lost')").get(m.name) as { c: number }).c;
+    const exporterPresence = (await db.prepare("SELECT COUNT(*) c FROM exporters WHERE export_markets LIKE ?").get(`%${m.name}%`) as { c: number }).c;
     return { ...m, buyers, importers, qualified, activeOpps, exporterPresence };
-  });
+  }));
 
   return (
     <div className="space-y-4">

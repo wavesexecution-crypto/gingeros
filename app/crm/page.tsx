@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 export default async function CRM() {
   const db = getDb();
-  const companies = db.prepare("SELECT id,name,country,grade,qual_score,buyer_status FROM companies ORDER BY qual_score DESC").all() as Record<string, unknown>[];
-  const vals = db.prepare("SELECT company_id, COALESCE(SUM(value),0) v FROM opportunities WHERE stage NOT IN ('Won','Lost') GROUP BY company_id").all() as { company_id: number; v: number }[];
+  const companies = await db.prepare("SELECT id,name,country,grade,qual_score,buyer_status FROM companies ORDER BY qual_score DESC").all() as Record<string, unknown>[];
+  const vals = await db.prepare("SELECT company_id, COALESCE(SUM(value),0) v FROM opportunities WHERE stage NOT IN ('Won','Lost') GROUP BY company_id").all() as { company_id: number; v: number }[];
   const vmap = new Map(vals.map((v) => [Number(v.company_id), Number(v.v)]));
   const initial: Record<string, Card[]> = {};
   for (const s of PIPELINE_STAGES) initial[s] = [];

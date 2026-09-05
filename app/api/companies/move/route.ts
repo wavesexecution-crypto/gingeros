@@ -18,10 +18,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid id or stage" }, { status: 400 });
   }
   const db = getDb();
-  const c = db.prepare("SELECT id FROM companies WHERE id=?").get(id) as { id: number } | undefined;
+  const c = (await db.prepare("SELECT id FROM companies WHERE id=?").get(id)) as { id: number } | undefined;
   if (!c) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  db.prepare("UPDATE companies SET buyer_status=?, last_activity=date('now') WHERE id=?").run(stage, id);
-  db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
+  await db.prepare("UPDATE companies SET buyer_status=?, last_activity=CURRENT_DATE WHERE id=?").run(stage, id);
+  await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
     id, "system", `Pipeline → ${stage}`, "Moved via CRM kanban", "Sales", nowISO()
   );
   return NextResponse.json({ ok: true });

@@ -16,9 +16,9 @@ export async function POST(req: Request) {
   }
   if (!body.companyId) return NextResponse.json({ error: "companyId required" }, { status: 400 });
   const db = getDb();
-  const c = db.prepare("SELECT * FROM companies WHERE id=?").get(body.companyId) as Record<string, unknown> | undefined;
+  const c = (await db.prepare("SELECT * FROM companies WHERE id=?").get(body.companyId)) as Record<string, unknown> | undefined;
   if (!c) return NextResponse.json({ error: "Company not found" }, { status: 404 });
-  const ev = db.prepare("SELECT * FROM lead_evidence WHERE company_id=? ORDER BY id DESC LIMIT 10").all(body.companyId) as Record<string, unknown>[];
+  const ev = await db.prepare("SELECT * FROM lead_evidence WHERE company_id=? ORDER BY id DESC LIMIT 10").all(body.companyId) as Record<string, unknown>[];
   const signals: string[] = [];
   if (c.products && String(c.products) !== "") signals.push(`Products: ${c.products}`);
   if (c.company_type) signals.push(`Type: ${c.company_type}`);

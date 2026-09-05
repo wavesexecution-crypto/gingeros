@@ -16,16 +16,16 @@ export default async function Outreach({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const filter = sp.status ?? "";
   const db = getDb();
-  const counts = db.prepare("SELECT outreach_status s, COUNT(*) c FROM companies GROUP BY outreach_status").all() as { s: string; c: number }[];
-  let rows = db.prepare("SELECT id,name,country,grade,qual_score,outreach_status FROM companies ORDER BY qual_score DESC").all() as Record<string, unknown>[];
+  const counts = await db.prepare("SELECT outreach_status s, COUNT(*) c FROM companies GROUP BY outreach_status").all() as { s: string; c: number }[];
+  let rows = await db.prepare("SELECT id,name,country,grade,qual_score,outreach_status FROM companies ORDER BY qual_score DESC").all() as Record<string, unknown>[];
   if (filter) rows = rows.filter((r) => String(r.outreach_status) === filter);
-  const contacts = db.prepare("SELECT * FROM contacts ORDER BY company_id, is_dm DESC, id").all() as Record<string, unknown>[];
+  const contacts = await db.prepare("SELECT * FROM contacts ORDER BY company_id, is_dm DESC, id").all() as Record<string, unknown>[];
   const first = new Map<number, Record<string, unknown>>();
   for (const c of contacts) {
     const k = Number(c.company_id);
     if (!first.has(k)) first.set(k, c);
   }
-  const companies = db.prepare("SELECT id,name FROM companies ORDER BY name").all() as { id: number; name: string }[];
+  const companies = await db.prepare("SELECT id,name FROM companies ORDER BY name").all() as { id: number; name: string }[];
 
   async function log(form: FormData) {
     "use server";
@@ -35,9 +35,9 @@ export default async function Outreach({ searchParams }: { searchParams: Promise
     const body = String(form.get("body") ?? "");
     if (!company_id) return;
     const db2 = getDb();
-    db2.prepare("INSERT INTO communications(company_id,channel,direction,subject,body,status,created_at) VALUES(?,?,?,?,?,?,?)").run(company_id, channel, "outbound", subject, body, "logged", nowISO());
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, channel.toLowerCase(), `${channel} logged — ${subject}`.slice(0, 120), body.slice(0, 500), "Sales", nowISO());
-    db2.prepare("UPDATE companies SET outreach_status=CASE WHEN outreach_status='Not contacted' THEN 'Contacted' ELSE outreach_status END, last_activity=date('now') WHERE id=?").run(company_id);
+    await db2.prepare("INSERT INTO communications(company_id,channel,direction,subject,body,status,created_at) VALUES(?,?,?,?,?,?,?)").run(company_id, channel, "outbound", subject, body, "logged", nowISO());
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, channel.toLowerCase(), `${channel} logged — ${subject}`.slice(0, 120), body.slice(0, 500), "Sales", nowISO());
+    await db2.prepare("UPDATE companies SET outreach_status=CASE WHEN outreach_status='Not contacted' THEN 'Contacted' ELSE outreach_status END, last_activity=date('now') WHERE id=?").run(company_id);
     redirect("/outreach" + (filter ? `?status=${encodeURIComponent(filter)}` : ""));
   }
 

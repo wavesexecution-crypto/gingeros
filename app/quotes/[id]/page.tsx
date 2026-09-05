@@ -10,17 +10,17 @@ const STATUSES = ["Draft", "Sent", "Viewed", "Negotiation", "Accepted", "Rejecte
 export default async function QuoteDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = getDb();
-  const q = db.prepare("SELECT q.*, co.name AS cname, c.name AS contact_name FROM quotes q JOIN companies co ON co.id=q.company_id LEFT JOIN contacts c ON c.id=q.contact_id WHERE q.id=?").get(id) as Record<string, unknown> | undefined;
+  const q = (await db.prepare("SELECT q.*, co.name AS cname, c.name AS contact_name FROM quotes q JOIN companies co ON co.id=q.company_id LEFT JOIN contacts c ON c.id=q.contact_id WHERE q.id=?").get(id)) as Record<string, unknown> | undefined;
   if (!q) return notFound();
   const cid = Number(q.company_id);
-  const items = db.prepare("SELECT * FROM quote_items WHERE quote_id=?").all(id) as Record<string, unknown>[];
+  const items = await db.prepare("SELECT * FROM quote_items WHERE quote_id=?").all(id) as Record<string, unknown>[];
 
   async function setStatus(form: FormData) {
     "use server";
     const s = String(form.get("status") ?? "Draft");
     const db2 = getDb();
-    db2.prepare("UPDATE quotes SET status=? WHERE id=?").run(s, Number(id));
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(cid, "system", `Quote #${id} → ${s}`, "", "Sales", nowISO());
+    await db2.prepare("UPDATE quotes SET status=? WHERE id=?").run(s, Number(id));
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(cid, "system", `Quote #${id} → ${s}`, "", "Sales", nowISO());
     redirect(`/quotes/${id}`);
   }
 

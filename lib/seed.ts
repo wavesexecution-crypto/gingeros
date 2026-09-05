@@ -15,16 +15,16 @@ export async function seed() {
   const db = getDb();
   // wipe (dev/demo only)
   const tables = ["quote_items","quotes","opportunities","enquiries","followups","communications","activities","lead_evidence","notes","contacts","companies","exporters","markets","products","users"];
-  for (const t of tables) db.exec(`DELETE FROM ${t};`);
+  for (const t of tables) await db.exec(`DELETE FROM ${t};`);
 
   // Only create the legacy dev accounts in dev mode. In production, accounts come from env.
   if (nodeEnv !== "production") {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD || "admin123", 10);
-    db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run("admin@gingeros.local","Admin","admin",hash,nowISO());
-    db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run("sales@gingeros.local","Sales Owner","sales",hash,nowISO());
+    await db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run("admin@gingeros.local","Admin","admin",hash,nowISO());
+    await db.prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run("sales@gingeros.local","Sales Owner","sales",hash,nowISO());
   }
 
-  db.prepare("INSERT INTO products(id,name,hs,description) VALUES(?,?,?,?)").run("dry-ginger","Dry Ginger","0910.12","Whole / slices / powder. Sun-dried rhizomes.");
+  await db.prepare("INSERT INTO products(id,name,hs,description) VALUES(?,?,?,?)").run("dry-ginger","Dry Ginger","0910.12","Whole / slices / powder. Sun-dried rhizomes.");
 
   const markets: [string,string,string][] = [
     ["AE","UAE","UAE"],["SA","Saudi Arabia","Middle East"],["QA","Qatar","Middle East"],
@@ -34,7 +34,7 @@ export async function seed() {
     ["ES","Spain","Europe"],["BE","Belgium","Europe"],["ZA","South Africa","South Africa"],
   ];
   for (const [code,name,region] of markets)
-    db.prepare("INSERT INTO markets(code,name,region,notes,sources,updated_at) VALUES(?,?,?,?,?,?)").run(code,name,region,`DEMO notes for ${name} — verify before selling.`,"DEMO seed",todayISO());
+    await db.prepare("INSERT INTO markets(code,name,region,notes,sources,updated_at) VALUES(?,?,?,?,?,?)").run(code,name,region,`DEMO notes for ${name} — verify before selling.`,"DEMO seed",todayISO());
 
   type B = { name:string; country:string; city:string; type:string; industry:string; products:string; fit:string; status:string; outreach:string; score:number; grade:string; signals:string[]; owner:string };
   const buyers: B[] = [
@@ -60,48 +60,48 @@ export async function seed() {
 
   const cids: number[] = [];
   for (const b of buyers) {
-    const r = db.prepare(`INSERT INTO companies(name,country,city,website,company_type,industry,products,ginger_fit,import_relevance,size,source,source_url,date_discovered,evidence,last_verified,buyer_status,qual_score,grade,priority,outreach_status,last_activity,owner,notes,data_label)
+    const r = await db.prepare(`INSERT INTO companies(name,country,city,website,company_type,industry,products,ginger_fit,import_relevance,size,source,source_url,date_discovered,evidence,last_verified,buyer_status,qual_score,grade,priority,outreach_status,last_activity,owner,notes,data_label)
       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       b.name,b.country,b.city,"Unknown",b.type,b.industry,b.products,b.fit,b.fit==="High"?"Likely importer":"Unknown","Unknown",
       "DEMO seed","","2026-09-01", b.signals.length?`DEMO — ${b.signals.join("; ")}`:"Evidence not available","",
       b.status,b.score,b.grade,b.grade==="A"?"High":b.grade==="B"?"Medium":"Low",b.outreach,"2026-09-04",b.owner,"DEMO record — verify before outreach","DEMO"
     );
     const id = Number(r.lastInsertRowid); cids.push(id);
-    db.prepare("INSERT INTO lead_evidence(company_id,source,url,snippet,discovered_at) VALUES(?,?,?,?,?)").run(id,"DEMO seed","","DEMO — do not treat as verified trade data","2026-09-01");
-    db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id,"system","Buyer discovered","DEMO discovery — needs verification","System","2026-09-01T10:00:00Z");
-    db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id,"system",`Qualified ${b.grade}`,`Score ${b.score}/100 — DEMO breakdown`,"System","2026-09-01T11:00:00Z");
+    await db.prepare("INSERT INTO lead_evidence(company_id,source,url,snippet,discovered_at) VALUES(?,?,?,?,?)").run(id,"DEMO seed","","DEMO — do not treat as verified trade data","2026-09-01");
+    await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id,"system","Buyer discovered","DEMO discovery — needs verification","System","2026-09-01T10:00:00Z");
+    await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id,"system",`Qualified ${b.grade}`,`Score ${b.score}/100 — DEMO breakdown`,"System","2026-09-01T11:00:00Z");
     if (b.outreach !== "Not contacted") {
-      db.prepare("INSERT INTO communications(company_id,channel,direction,subject,body,status,created_at) VALUES(?,?,?,?,?,?,?)").run(id,"Email","outbound","Dry ginger from India — specs & pricing","DEMO draft — no real send","logged","2026-09-02T09:00:00Z");
-      db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id,"email","Email sent","DEMO — draft logged, no integration","Sales Owner","2026-09-02T09:00:00Z");
+      await db.prepare("INSERT INTO communications(company_id,channel,direction,subject,body,status,created_at) VALUES(?,?,?,?,?,?,?)").run(id,"Email","outbound","Dry ginger from India — specs & pricing","DEMO draft — no real send","logged","2026-09-02T09:00:00Z");
+      await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id,"email","Email sent","DEMO — draft logged, no integration","Sales Owner","2026-09-02T09:00:00Z");
     }
     // contacts — clearly demo, Unknown where appropriate
     if (b.grade === "A") {
-      db.prepare("INSERT INTO contacts(company_id,name,role,dept,email,phone,linkedin,confidence,is_dm,notes) VALUES(?,?,?,?,?,?,?,?,?,?)").run(id,"DEMO Procurement Lead","Procurement Manager","Procurement","Unknown","Unknown","","Unverified",1,"DEMO — find real contact before outreach");
+      await db.prepare("INSERT INTO contacts(company_id,name,role,dept,email,phone,linkedin,confidence,is_dm,notes) VALUES(?,?,?,?,?,?,?,?,?,?)").run(id,"DEMO Procurement Lead","Procurement Manager","Procurement","Unknown","Unknown","","Unverified",1,"DEMO — find real contact before outreach");
     } else if (b.grade === "B") {
-      db.prepare("INSERT INTO contacts(company_id,name,role,dept,email,phone,linkedin,confidence,is_dm,notes) VALUES(?,?,?,?,?,?,?,?,?,?)").run(id,"DEMO Commercial Contact","Commercial","Sales","Unknown","Unknown","","Unverified",0,"DEMO");
+      await db.prepare("INSERT INTO contacts(company_id,name,role,dept,email,phone,linkedin,confidence,is_dm,notes) VALUES(?,?,?,?,?,?,?,?,?,?)").run(id,"DEMO Commercial Contact","Commercial","Sales","Unknown","Unknown","","Unverified",0,"DEMO");
     }
     // follow-ups for active
     if (["Contacted","Interested","Responded","Enquiry","Quotation Sent","Negotiation"].includes(b.status)) {
-      db.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(id,`Follow up — ${b.name.slice(0,28)}`,"2026-09-05",0,b.owner,"DEMO follow-up",nowISO());
+      await db.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(id,`Follow up — ${b.name.slice(0,28)}`,"2026-09-05",0,b.owner,"DEMO follow-up",nowISO());
     }
   }
 
   // Enquiries / opportunities / quotes on hot buyers
-  const byName = (n: string) => {
-    const r = db.prepare("SELECT id FROM companies WHERE name=?").get(n) as {id:number}|undefined;
+  const byName = async (n: string) => {
+    const r = (await db.prepare("SELECT id FROM companies WHERE name=?").get(n)) as {id:number}|undefined;
     return r?.id ?? cids[0];
   };
-  const e1 = byName("DEMO — Emirates Food Ingredients");
-  const e2 = byName("DEMO — Cape Spice Distributors");
-  const e3 = byName("DEMO — London Spice Importers Ltd");
-  const e4 = byName("DEMO — Saudi Spice Co.");
-  db.prepare("INSERT INTO enquiries(company_id,country,product,qty,packaging,destination,specs,certs,target_price,delivery,payment_terms,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e1,"UAE","Dry Ginger","2 MT","25kg PP bags","Jebel Ali","Whole, moisture <12%","Unknown","CIF Jebel Ali target","30 days","30% advance","Qualified","DEMO enquiry",nowISO());
-  db.prepare("INSERT INTO enquiries(company_id,country,product,qty,packaging,destination,specs,target_price,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)").run(e2,"South Africa","Dry Ginger","5 MT","25kg bags","Durban","Slices, SO2-free","CIF Durban","Quotation Required","DEMO",nowISO());
-  db.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,last_activity,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e3,"Dry Ginger","10 MT","2400","USD",24000,"Negotiation",70,"2026-10-01","2026-09-04","Send revised CIF Felixstowe quote","DEMO opportunity",nowISO());
-  db.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,last_activity,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e4,"Dry Ginger","3 MT","2300","USD",6900,"Quotation Sent",50,"2026-09-20","2026-09-03","Confirm packaging + payment terms","DEMO",nowISO());
-  db.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,last_activity,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e1,"Dry Ginger","2 MT","2350","USD",4700,"Enquiry",30,"2026-09-25","2026-09-04","Request destination port confirmation","DEMO",nowISO());
-  const qid = Number(db.prepare("INSERT INTO quotes(company_id,product,qty,unit_price,currency,packaging,incoterm,destination,validity,payment_terms,lead_time,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e4,"Dry Ginger","3 MT","2300","USD","25kg PP bags","CIF","Jeddah","15 days","30% advance, balance CAD","20 days","Sent","DEMO quote — configurable terms",nowISO()).lastInsertRowid);
-  db.prepare("INSERT INTO quote_items(quote_id,description,qty,unit_price) VALUES(?,?,?,?)").run(qid,"Dry Ginger Whole — FAQ","3 MT","2300 USD/MT");
+  const e1 = await byName("DEMO — Emirates Food Ingredients");
+  const e2 = await byName("DEMO — Cape Spice Distributors");
+  const e3 = await byName("DEMO — London Spice Importers Ltd");
+  const e4 = await byName("DEMO — Saudi Spice Co.");
+  await db.prepare("INSERT INTO enquiries(company_id,country,product,qty,packaging,destination,specs,certs,target_price,delivery,payment_terms,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e1,"UAE","Dry Ginger","2 MT","25kg PP bags","Jebel Ali","Whole, moisture <12%","Unknown","CIF Jebel Ali target","30 days","30% advance","Qualified","DEMO enquiry",nowISO());
+  await db.prepare("INSERT INTO enquiries(company_id,country,product,qty,packaging,destination,specs,target_price,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)").run(e2,"South Africa","Dry Ginger","5 MT","25kg bags","Durban","Slices, SO2-free","CIF Durban","Quotation Required","DEMO",nowISO());
+  await db.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,last_activity,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e3,"Dry Ginger","10 MT","2400","USD",24000,"Negotiation",70,"2026-10-01","2026-09-04","Send revised CIF Felixstowe quote","DEMO opportunity",nowISO());
+  await db.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,last_activity,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e4,"Dry Ginger","3 MT","2300","USD",6900,"Quotation Sent",50,"2026-09-20","2026-09-03","Confirm packaging + payment terms","DEMO",nowISO());
+  await db.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,last_activity,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e1,"Dry Ginger","2 MT","2350","USD",4700,"Enquiry",30,"2026-09-25","2026-09-04","Request destination port confirmation","DEMO",nowISO());
+  const qid = Number((await db.prepare("INSERT INTO quotes(company_id,product,qty,unit_price,currency,packaging,incoterm,destination,validity,payment_terms,lead_time,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(e4,"Dry Ginger","3 MT","2300","USD","25kg PP bags","CIF","Jeddah","15 days","30% advance, balance CAD","20 days","Sent","DEMO quote — configurable terms",nowISO())).lastInsertRowid);
+  await db.prepare("INSERT INTO quote_items(quote_id,description,qty,unit_price) VALUES(?,?,?,?)").run(qid,"Dry Ginger Whole — FAQ","3 MT","2300 USD/MT");
 
   const exps = [
     ["DEMO — Kochi Spice Exports","Kochi, Kerala","Unknown","Spices","Dry ginger whole/powder","UAE, Germany","Unknown","DEMO seed","Evidence not available"],
@@ -111,7 +111,7 @@ export async function seed() {
     ["DEMO — Erode Ginger Works","Erode, TN","Unknown","Turmeric, ginger","Whole FAQ","Qatar, Oman","Unknown","DEMO seed","Evidence not available"],
     ["DEMO — Delhi Spice Traders","Delhi","Unknown","Trading","Assorted","Europe","Unknown","DEMO seed","Evidence not available"],
   ];
-  for (const e of exps) db.prepare("INSERT INTO exporters(name,location,website,products,ginger_offering,export_markets,certs,source,evidence,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?)").run(...e,"DEMO — verify before relying","DEMO");
+  for (const e of exps) await db.prepare("INSERT INTO exporters(name,location,website,products,ginger_offering,export_markets,certs,source,evidence,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?)").run(...e,"DEMO — verify before relying","DEMO");
   console.log("Seeded DEMO data.");
 }
 

@@ -9,14 +9,14 @@ export default async function Buyers({ searchParams }: { searchParams: Promise<R
   const q = (sp.q ?? "").toLowerCase();
   const country = sp.country ?? "", type = sp.type ?? "", grade = sp.grade ?? "", status = sp.status ?? "";
   const db = getDb();
-  let rows = db.prepare("SELECT * FROM companies ORDER BY qual_score DESC, name").all() as Record<string, unknown>[];
+  let rows = await db.prepare("SELECT * FROM companies ORDER BY qual_score DESC, name").all() as Record<string, unknown>[];
   if (q) rows = rows.filter((r) => `${r.name} ${r.city} ${r.country} ${r.products} ${r.industry}`.toLowerCase().includes(q));
   if (country) rows = rows.filter((r) => String(r.country) === country);
   if (type) rows = rows.filter((r) => String(r.company_type) === type);
   if (grade) rows = rows.filter((r) => String(r.grade) === grade);
   if (status) rows = rows.filter((r) => String(r.buyer_status) === status);
-  const countries = [...new Set((db.prepare("SELECT DISTINCT country FROM companies").all() as { country: string }[]).map((x) => x.country))];
-  const openFups = db.prepare("SELECT company_id,title,due_date FROM followups WHERE done=0 ORDER BY due_date").all() as { company_id: number; title: string; due_date: string }[];
+  const countries = [...new Set((await db.prepare("SELECT DISTINCT country FROM companies").all() as { country: string }[]).map((x) => x.country))];
+  const openFups = await db.prepare("SELECT company_id,title,due_date FROM followups WHERE done=0 ORDER BY due_date").all() as { company_id: number; title: string; due_date: string }[];
   const nextByCompany = new Map<number, { title: string; due_date: string }>();
   for (const f of openFups) {
     const cid = Number(f.company_id);

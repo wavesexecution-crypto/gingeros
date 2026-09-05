@@ -9,9 +9,9 @@ export default async function NewQuote({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const pre = sp.company ?? "";
   const db = getDb();
-  const companies = db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
-  const contacts = db.prepare("SELECT c.id, c.name, co.name AS cname FROM contacts c JOIN companies co ON co.id=c.company_id ORDER BY c.name").all() as Record<string, unknown>[];
-  const enquiries = db.prepare("SELECT e.id, e.product, e.qty, co.name AS cname FROM enquiries e JOIN companies co ON co.id=e.company_id ORDER BY e.id DESC").all() as Record<string, unknown>[];
+  const companies = await db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
+  const contacts = await db.prepare("SELECT c.id, c.name, co.name AS cname FROM contacts c JOIN companies co ON co.id=c.company_id ORDER BY c.name").all() as Record<string, unknown>[];
+  const enquiries = await db.prepare("SELECT e.id, e.product, e.qty, co.name AS cname FROM enquiries e JOIN companies co ON co.id=e.company_id ORDER BY e.id DESC").all() as Record<string, unknown>[];
 
   async function create(form: FormData) {
     "use server";
@@ -20,7 +20,7 @@ export default async function NewQuote({ searchParams }: { searchParams: Promise
     const contactRaw = String(form.get("contact_id") ?? "");
     const enquiryRaw = String(form.get("enquiry_id") ?? "");
     const db2 = getDb();
-    const r = db2.prepare("INSERT INTO quotes(company_id,contact_id,enquiry_id,product,qty,unit_price,currency,packaging,incoterm,destination,validity,payment_terms,lead_time,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+    const r = await db2.prepare("INSERT INTO quotes(company_id,contact_id,enquiry_id,product,qty,unit_price,currency,packaging,incoterm,destination,validity,payment_terms,lead_time,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
       company_id, contactRaw ? Number(contactRaw) : null, enquiryRaw ? Number(enquiryRaw) : null,
       String(form.get("product") ?? "Dry Ginger") || "Dry Ginger", String(form.get("qty") ?? ""),
       String(form.get("unit_price") ?? ""), String(form.get("currency") ?? "USD") || "USD",
@@ -29,7 +29,7 @@ export default async function NewQuote({ searchParams }: { searchParams: Promise
       String(form.get("payment_terms") ?? ""), String(form.get("lead_time") ?? ""),
       "Draft", String(form.get("notes") ?? ""), nowISO());
     const id = Number(r.lastInsertRowid);
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, "quote", `Quote #${id} drafted`, `${String(form.get("qty") ?? "")} @ ${String(form.get("unit_price") ?? "")}`, "Sales", nowISO());
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, "quote", `Quote #${id} drafted`, `${String(form.get("qty") ?? "")} @ ${String(form.get("unit_price") ?? "")}`, "Sales", nowISO());
     redirect("/quotes");
   }
 

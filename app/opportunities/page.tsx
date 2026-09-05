@@ -13,13 +13,13 @@ export default async function Opportunities({ searchParams }: { searchParams: Pr
   const q = (sp.q ?? "").toLowerCase();
   const stage = sp.stage ?? "";
   const db = getDb();
-  let rows = db.prepare("SELECT o.*, co.name AS cname, co.country AS ccountry FROM opportunities o JOIN companies co ON co.id=o.company_id ORDER BY o.id DESC").all() as Record<string, unknown>[];
+  let rows = await db.prepare("SELECT o.*, co.name AS cname, co.country AS ccountry FROM opportunities o JOIN companies co ON co.id=o.company_id ORDER BY o.id DESC").all() as Record<string, unknown>[];
   if (stage) rows = rows.filter((r) => String(r.stage) === stage);
   if (q) rows = rows.filter((r) => `${r.cname} ${r.ccountry} ${r.product}`.toLowerCase().includes(q));
   const open = rows.filter((r) => OPEN.includes(String(r.stage)));
   const pipe = open.reduce((s, r) => s + Number(r.value || 0), 0);
   const weighted = open.reduce((s, r) => s + Number(r.value || 0) * Number(r.probability || 0) / 100, 0);
-  const wonRow = db.prepare("SELECT COALESCE(SUM(value),0) AS t FROM opportunities WHERE stage='Won'").get() as { t: number } | undefined;
+  const wonRow = (await db.prepare("SELECT COALESCE(SUM(value),0) AS t FROM opportunities WHERE stage='Won'").get()) as { t: number } | undefined;
 
   return (
     <div className="space-y-4">

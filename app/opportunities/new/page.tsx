@@ -11,21 +11,21 @@ export default async function NewOpportunity({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const pre = sp.company ?? "";
   const db = getDb();
-  const companies = db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
+  const companies = await db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
 
   async function create(form: FormData) {
     "use server";
     const company_id = Number(form.get("company_id") ?? 0);
     if (!company_id) return;
     const db2 = getDb();
-    const r = db2.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").run(
+    const r = await db2.prepare("INSERT INTO opportunities(company_id,product,qty,price,currency,value,stage,probability,expected_close,next_action,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").run(
       company_id, String(form.get("product") ?? "Dry Ginger") || "Dry Ginger", String(form.get("qty") ?? ""),
       String(form.get("price") ?? ""), String(form.get("currency") ?? "USD") || "USD",
       Number(form.get("value") ?? 0) || 0, String(form.get("stage") ?? "Discovered") || "Discovered",
       Math.min(100, Math.max(0, Number(form.get("probability") ?? 10) || 0)),
       String(form.get("expected_close") ?? ""), String(form.get("next_action") ?? ""), String(form.get("notes") ?? ""), nowISO());
     const id = Number(r.lastInsertRowid);
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, "opportunity", `Opportunity #${id} opened`, String(form.get("stage") ?? ""), "Sales", nowISO());
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, "opportunity", `Opportunity #${id} opened`, String(form.get("stage") ?? ""), "Sales", nowISO());
     redirect("/opportunities");
   }
 

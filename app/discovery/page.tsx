@@ -14,7 +14,7 @@ export default async function Discovery({ searchParams }: { searchParams: Promis
   const minGrade = sp.minGrade ?? "";
   const searched = Boolean(region || buyerType || minGrade);
   const db = getDb();
-  let rows = db.prepare("SELECT id,name,country,city,company_type,grade,qual_score,products,buyer_status,data_label FROM companies ORDER BY qual_score DESC").all() as Record<string, unknown>[];
+  let rows = await db.prepare("SELECT id,name,country,city,company_type,grade,qual_score,products,buyer_status,data_label FROM companies ORDER BY qual_score DESC").all() as Record<string, unknown>[];
   if (region) rows = rows.filter((r) => regionForCountry(String(r.country)) === region);
   if (buyerType) rows = rows.filter((r) => String(r.company_type) === buyerType);
   if (minGrade) rows = rows.filter((r) => (RANK[String(r.grade)] ?? 0) >= (RANK[minGrade] ?? 0));

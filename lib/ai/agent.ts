@@ -19,8 +19,8 @@ export interface AgentResult { reply: string; cards: Card[]; actions: PendingAct
 
 function secret() { return process.env.AUTH_SECRET || "dev-only-change-me-ginger-os"; }
 
-export function ensureAuditTable() {
-  getDb().exec(`CREATE TABLE IF NOT EXISTS ai_audit(
+export async function ensureAuditTable() {
+  await getDb().exec(`CREATE TABLE IF NOT EXISTS ai_audit(
     id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL,
     user_email TEXT DEFAULT '', user_request TEXT DEFAULT '', tool TEXT NOT NULL,
     target TEXT DEFAULT '', args_json TEXT DEFAULT '', result TEXT DEFAULT '',
@@ -45,10 +45,10 @@ function verifyAction(token: string, email: string): { tool: string; args: Recor
   } catch { return null; }
 }
 
-function auditWrite(actor: Actor, req: string, tool: string, target: string, args: unknown, result: unknown, inverse: unknown): number {
-  ensureAuditTable();
-  return Number(getDb().prepare("INSERT INTO ai_audit(created_at,user_email,user_request,tool,target,args_json,result,inverse_json) VALUES(?,?,?,?,?,?,?,?)").run(
-    nowISO(), actor.email, req.slice(0, 500), tool, target.slice(0, 200), JSON.stringify(args).slice(0, 2000), JSON.stringify(result).slice(0, 2000), JSON.stringify(inverse ?? null)).lastInsertRowid);
+async function auditWrite(actor: Actor, req: string, tool: string, target: string, args: unknown, result: unknown, inverse: unknown): Promise<number> {
+  await ensureAuditTable();
+  return Number((await getDb().prepare("INSERT INTO ai_audit(created_at,user_email,user_request,tool,target,args_json,result,inverse_json) VALUES(?,?,?,?,?,?,?,?)").run(
+    nowISO(), actor.email, req.slice(0, 500), tool, target.slice(0, 200), JSON.stringify(args).slice(0, 2000), JSON.stringify(result).slice(0, 2000), JSON.stringify(inverse ?? null))).lastInsertRowid);
 }
 
 const S = (v: unknown) => String(v ?? "");
@@ -159,12 +159,12 @@ async function localRun(actor: Actor, msg: string, page: PageCtx & { companyName
 
   // undo
   if (/^\s*(undo|revert)(\s+that|\s+last|\s+it)?\s*[.?]?\s*$/i.test(m)) {
-    ensureAuditTable();
-    const a = getDb().prepare("SELECT id FROM ai_audit WHERE user_email=? AND undone=0 ORDER BY id DESC LIMIT 1").get(actor.email) as { id: number } | undefined;
+    await ensureAuditTable();
+    const a = (await getDb().prepare("SELECT id FROM ai_audit WHERE user_email=? AND undone=0 ORDER BY id DESC LIMIT 1").get(actor.email)) as { id: number } | undefined;
     if (!a) return out("Nothing to undo — no recent AI write found.");
     const r = await execTool(actor, "undo_ai_action", { audit_id: a.id });
     if (!r.ok) return out(r.error!);
-    auditWrite(actor, userReq, "undo_ai_action", `#${a.id}`, { audit_id: a.id }, r.data, null);
+    await auditWrite(actor, userReq, "undo_ai_action", `#${a.id}`, { audit_id: a.id }, r.data, null);
     return out(`Undone AI action #${a.id}.`);
   }
   // brief
@@ -283,7 +283,7 @@ async function localRun(actor: Actor, msg: string, page: PageCtx & { companyName
       else return out("Which buyer should I move?");
       const stage = stageFuzzy(mv?.[2] ?? "");
       if (!stage) return out(`Unknown stage. Use: ${PIPELINE_STAGES.join(", ")}`);
-      const cur = single.company_id ? (getDb().prepare("SELECT buyer_status FROM companies WHERE id=?").get(single.company_id) as { buyer_status: string } | undefined) : null;
+      const cur = single.company_id ? (await getDb().prepare("SELECT buyer_status FROM companies WHERE id=?").get(single.company_id)) as { buyer_status: string } | undefined : null;
       return need("update_pipeline_stage", { ...single, ...(ids ? { company_ids: ids } : {}), stage }, cur ? `${who || "Buyer"} is currently in ${cur.buyer_status}.` : undefined);
     }
   }
@@ -372,7 +372,7 @@ export interface CopilotRequest {
 }
 
 export async function runCopilot(actor: Actor, req: CopilotRequest): Promise<AgentResult> {
-  ensureAuditTable();
+  await ensureAuditTable();
   const page = req.page ?? { path: "/" };
   const last: LastState = req.lastState ?? {};
   const audits: number[] = [];
@@ -388,12 +388,12 @@ export async function runCopilot(actor: Actor, req: CopilotRequest): Promise<Age
       if (toolKind(v.tool) !== "WRITE") continue;
       const r = await execTool(actor, v.tool as ToolName, v.args);
       if (!r.ok) {
-        auditWrite(actor, req.message, v.tool, "", v.args, { error: r.error }, null);
+        await auditWrite(actor, req.message, v.tool, "", v.args, { error: r.error }, null);
         done.push(`${v.tool}: failed — ${r.error}`);
         continue;
       }
       const s = summarizeWrite(v.tool as ToolName, v.args);
-      const id = auditWrite(actor, req.message, v.tool, s.target, v.args, r.data, r.inverse);
+      const id = await auditWrite(actor, req.message, v.tool, s.target, v.args, r.data, r.inverse);
       audits.push(id);
       const extra = v.tool === "create_followup" ? `(${(r.data as { created: number }).created} created)` : v.tool === "create_quote" ? `(Quote #${(r.data as { id: number }).id} Draft)` : v.tool === "create_opportunity" ? `(Opp #${(r.data as { id: number }).id})` : v.tool === "create_enquiry" ? `(Enquiry #${(r.data as { id: number }).id})` : "";
       done.push(`✓ ${s.summary} — ${s.target} ${extra} [audit #${id}]`);
@@ -407,7 +407,7 @@ export async function runCopilot(actor: Actor, req: CopilotRequest): Promise<Age
   // resolve current buyer name for context
   let companyName: string | undefined = page.companyName;
   if (page.companyId && !companyName) {
-    try { companyName = S((getDb().prepare("SELECT name FROM companies WHERE id=?").get(page.companyId) as { name: string } | undefined)?.name); } catch { /* ignore */ }
+    try { companyName = S(((await getDb().prepare("SELECT name FROM companies WHERE id=?").get(page.companyId)) as { name: string } | undefined)?.name); } catch { /* ignore */ }
   }
   const marketName = page.marketName ?? page.market;
 
@@ -453,8 +453,8 @@ export async function runCopilot(actor: Actor, req: CopilotRequest): Promise<Age
             conv.push({ role: "tool", content: `Write action staged for user confirmation: ${s.summary} → ${s.target}. Do NOT claim it is done; present the confirmation.` });
           } else {
             const r = await execTool(actor, c.name as ToolName, c.arguments);
-            if (r.ok && r.inverse) { const id = auditWrite(actor, userReq, c.name, summarizeWrite(c.name as ToolName, c.arguments).target, c.arguments, r.data, r.inverse); audits.push(id); }
-            if (!r.ok && r.error) auditWrite(actor, userReq, c.name, "", c.arguments, { error: r.error }, null);
+            if (r.ok && r.inverse) { const id = await auditWrite(actor, userReq, c.name, summarizeWrite(c.name as ToolName, c.arguments).target, c.arguments, r.data, r.inverse); audits.push(id); }
+            if (!r.ok && r.error) await auditWrite(actor, userReq, c.name, "", c.arguments, { error: r.error }, null);
             if (r.ok && (c.name === "search_buyers" || c.name === "get_stalled")) {
               const rows = ((r.data as { buyers?: Record<string, unknown>[]; stalled?: Record<string, unknown>[] }).buyers ?? (r.data as { stalled?: Record<string, unknown>[] }).stalled ?? []) as Record<string, unknown>[];
               cards.push(...buyerCards(rows));

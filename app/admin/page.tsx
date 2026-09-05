@@ -12,11 +12,11 @@ export default async function AdminPage() {
   const gate = await authGate("admin");
   if (!gate.ok) redirect("/");
   const db = getDb();
-  const users = db.prepare("SELECT id, email, name, role FROM users ORDER BY id").all() as Record<string, unknown>[];
-  const sources = db.prepare("SELECT source, COUNT(*) c FROM companies GROUP BY source ORDER BY c DESC").all() as Record<string, unknown>[];
+  const users = await db.prepare("SELECT id, email, name, role FROM users ORDER BY id").all() as Record<string, unknown>[];
+  const sources = await db.prepare("SELECT source, COUNT(*) c FROM companies GROUP BY source ORDER BY c DESC").all() as Record<string, unknown>[];
   const health = providerHealth();
   let audit: Record<string, unknown>[] = [];
-  try { audit = db.prepare("SELECT * FROM ai_audit ORDER BY id DESC LIMIT 50").all() as Record<string, unknown>[]; } catch { audit = []; }
+  try { audit = await db.prepare("SELECT * FROM ai_audit ORDER BY id DESC LIMIT 50").all() as Record<string, unknown>[]; } catch { audit = []; }
 
   async function addUser(form: FormData) {
     "use server";
@@ -30,7 +30,7 @@ export default async function AdminPage() {
     if (!["viewer", "sales", "admin"].includes(role)) return;
     const hash = await bcrypt.hash(password, 10);
     try {
-      getDb().prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run(email, name, role, hash, nowISO());
+      await getDb().prepare("INSERT INTO users(email,name,role,password_hash,created_at) VALUES(?,?,?,?,?)").run(email, name, role, hash, nowISO());
     } catch {}
     redirect("/admin");
   }

@@ -16,11 +16,11 @@ export default function NewBuyer() {
     const gf = fit === "High" ? 3 : fit === "Medium" ? 2 : 0;
     const { score, grade } = scoreBuyer({ productRelevance: pr as 0|1|2|3, importerStatus: type==="Importer"?2:1, internationalSourcing: 1, gingerFit: gf as 0|1|2|3, geoPriority: geo as 0|1|2, companyQuality: 1, contactAvailability: 0, evidenceStrength: 0, buyingSignals: 0 });
     const db = getDb();
-    const r = db.prepare(`INSERT INTO companies(name,country,city,website,company_type,industry,products,ginger_fit,import_relevance,size,source,source_url,date_discovered,evidence,buyer_status,qual_score,grade,priority,outreach_status,last_activity,owner,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    const r = await db.prepare(`INSERT INTO companies(name,country,city,website,company_type,industry,products,ginger_fit,import_relevance,size,source,source_url,date_discovered,evidence,buyer_status,qual_score,grade,priority,outreach_status,last_activity,owner,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
       name, country, String(form.get("city") ?? ""), String(form.get("website") ?? "Unknown"), type, String(form.get("industry") ?? ""), String(form.get("products") ?? ""), fit, "Unknown", "Unknown", "MANUAL", String(form.get("source_url") ?? ""), todayISO(), String(form.get("evidence") ?? "") || "Evidence not available",
       "Discovered", score, grade, grade==="A"?"High":grade==="B"?"Medium":"Low", "Not contacted", todayISO(), String(form.get("owner") ?? "Unassigned"), String(form.get("notes") ?? ""), "MANUAL");
     const id = Number(r.lastInsertRowid);
-    db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id, "system", "Buyer added manually", `Score ${score}/100 grade ${grade}`, "System", nowISO());
+    await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(id, "system", "Buyer added manually", `Score ${score}/100 grade ${grade}`, "System", nowISO());
     redirect(`/buyers/${id}`);
   }
   return (

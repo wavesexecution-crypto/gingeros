@@ -9,16 +9,16 @@ export const dynamic = "force-dynamic";
 export default async function BuyerProfile({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = getDb();
-  const c = db.prepare("SELECT * FROM companies WHERE id=?").get(id) as Record<string, unknown> | undefined;
+  const c = (await db.prepare("SELECT * FROM companies WHERE id=?").get(id)) as Record<string, unknown> | undefined;
   if (!c) return notFound();
-  const contacts = db.prepare("SELECT * FROM contacts WHERE company_id=?").all(id) as Record<string, unknown>[];
-  const acts = db.prepare("SELECT * FROM activities WHERE company_id=? ORDER BY created_at DESC LIMIT 30").all(id) as Record<string, unknown>[];
-  const comms = db.prepare("SELECT * FROM communications WHERE company_id=? ORDER BY created_at DESC LIMIT 20").all(id) as Record<string, unknown>[];
-  const fups = db.prepare("SELECT * FROM followups WHERE company_id=? ORDER BY due_date").all(id) as Record<string, unknown>[];
-  const enqs = db.prepare("SELECT * FROM enquiries WHERE company_id=? ORDER BY id DESC").all(id) as Record<string, unknown>[];
-  const opps = db.prepare("SELECT * FROM opportunities WHERE company_id=? ORDER BY id DESC").all(id) as Record<string, unknown>[];
-  const quotes = db.prepare("SELECT * FROM quotes WHERE company_id=? ORDER BY id DESC").all(id) as Record<string, unknown>[];
-  const evid = db.prepare("SELECT * FROM lead_evidence WHERE company_id=?").all(id) as Record<string, unknown>[];
+  const contacts = await db.prepare("SELECT * FROM contacts WHERE company_id=?").all(id) as Record<string, unknown>[];
+  const acts = await db.prepare("SELECT * FROM activities WHERE company_id=? ORDER BY created_at DESC LIMIT 30").all(id) as Record<string, unknown>[];
+  const comms = await db.prepare("SELECT * FROM communications WHERE company_id=? ORDER BY created_at DESC LIMIT 20").all(id) as Record<string, unknown>[];
+  const fups = await db.prepare("SELECT * FROM followups WHERE company_id=? ORDER BY due_date").all(id) as Record<string, unknown>[];
+  const enqs = await db.prepare("SELECT * FROM enquiries WHERE company_id=? ORDER BY id DESC").all(id) as Record<string, unknown>[];
+  const opps = await db.prepare("SELECT * FROM opportunities WHERE company_id=? ORDER BY id DESC").all(id) as Record<string, unknown>[];
+  const quotes = await db.prepare("SELECT * FROM quotes WHERE company_id=? ORDER BY id DESC").all(id) as Record<string, unknown>[];
+  const evid = await db.prepare("SELECT * FROM lead_evidence WHERE company_id=?").all(id) as Record<string, unknown>[];
 
   const signals: string[] = String(c.evidence ?? "").includes("Evidence not available") ? [] : String(c.evidence ?? "").replace(/^DEMO — /, "").split(";").map((s) => s.trim()).filter(Boolean);
   const brief = await aiProvider.whyContact({ company: { name: String(c.name), country: String(c.country), city: String(c.city), industry: String(c.industry), products: String(c.products), website: String(c.website) }, signals, evidence: String(c.evidence), grade: String(c.grade), score: Number(c.qual_score) });
@@ -29,8 +29,8 @@ export default async function BuyerProfile({ params }: { params: Promise<{ id: s
     const title = String(form.get("title") ?? kind);
     const body = String(form.get("body") ?? "");
     const db2 = getDb();
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), kind, title, body, "Sales", nowISO());
-    db2.prepare("UPDATE companies SET last_activity=date('now') WHERE id=?").run(Number(id));
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), kind, title, body, "Sales", nowISO());
+    await db2.prepare("UPDATE companies SET last_activity=date('now') WHERE id=?").run(Number(id));
     redirect(`/buyers/${id}`);
   }
 
@@ -132,8 +132,8 @@ function AddContact({ id }: { id: string }) {
   async function add(f: FormData) {
     "use server";
     const db = getDb();
-    db.prepare("INSERT INTO contacts(company_id,name,role,dept,email,phone,linkedin,confidence,is_dm,notes) VALUES(?,?,?,?,?,?,?,?,?,?)").run(Number(id), String(f.get("name") ?? ""), String(f.get("role") ?? ""), String(f.get("dept") ?? ""), String(f.get("email") ?? "Unknown") || "Unknown", String(f.get("phone") ?? "Unknown") || "Unknown", String(f.get("linkedin") ?? ""), "Unverified", f.get("is_dm") ? 1 : 0, "");
-    db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), "system", "Contact added", String(f.get("name")), "Sales", nowISO());
+    await db.prepare("INSERT INTO contacts(company_id,name,role,dept,email,phone,linkedin,confidence,is_dm,notes) VALUES(?,?,?,?,?,?,?,?,?,?)").run(Number(id), String(f.get("name") ?? ""), String(f.get("role") ?? ""), String(f.get("dept") ?? ""), String(f.get("email") ?? "Unknown") || "Unknown", String(f.get("phone") ?? "Unknown") || "Unknown", String(f.get("linkedin") ?? ""), "Unverified", f.get("is_dm") ? 1 : 0, "");
+    await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), "system", "Contact added", String(f.get("name")), "Sales", nowISO());
     redirect(`/buyers/${id}`);
   }
   return <form action={add} className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3"><input name="name" required placeholder="Name *" className="input col-span-2" /><input name="role" placeholder="Role (Procurement…)" className="input" /><input name="dept" placeholder="Dept" className="input" /><input name="email" placeholder="Email or Unknown" className="input" /><input name="phone" placeholder="Phone or Unknown" className="input" /><label className="muted text-[12px] flex items-center gap-1 col-span-2"><input type="checkbox" name="is_dm" /> Decision maker</label><button className="btn col-span-2 min-h-[44px] justify-center" type="submit">Add contact</button></form>;
@@ -142,7 +142,7 @@ function AddFollowup({ id }: { id: string }) {
   async function add(f: FormData) {
     "use server";
     const db = getDb();
-    db.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(Number(id), String(f.get("title") ?? "Follow up"), String(f.get("due") ?? new Date().toISOString().slice(0, 10)), 0, "Sales", "", nowISO());
+    await db.prepare("INSERT INTO followups(company_id,title,due_date,done,owner,notes,created_at) VALUES(?,?,?,?,?,?,?)").run(Number(id), String(f.get("title") ?? "Follow up"), String(f.get("due") ?? new Date().toISOString().slice(0, 10)), 0, "Sales", "", nowISO());
     redirect(`/buyers/${id}`);
   }
   return <form action={add} className="flex flex-wrap gap-2 mt-3"><input name="title" required placeholder="Next action" className="input min-h-[44px]" /><input name="due" type="date" className="input !w-[150px] min-h-[44px]" /><button className="btn min-h-[44px]" type="submit">Add</button></form>;
@@ -152,8 +152,8 @@ function MoveStage({ id, current, outreach }: { id: string; current: string; out
     "use server";
     const db = getDb();
     const s = String(f.get("stage") ?? current), o = String(f.get("outreach") ?? outreach);
-    db.prepare("UPDATE companies SET buyer_status=?, outreach_status=?, last_activity=date('now') WHERE id=?").run(s, o, Number(id));
-    db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), "system", `Stage → ${s} / ${o}`, "", "Sales", nowISO());
+    await db.prepare("UPDATE companies SET buyer_status=?, outreach_status=?, last_activity=date('now') WHERE id=?").run(s, o, Number(id));
+    await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(Number(id), "system", `Stage → ${s} / ${o}`, "", "Sales", nowISO());
     redirect(`/buyers/${id}`);
   }
   const stages = ["Discovered","Qualified","Researching","Contacted","Responded","Interested","Enquiry","Quotation Sent","Negotiation","Won","Lost","Not Relevant"];

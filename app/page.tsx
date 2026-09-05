@@ -7,26 +7,26 @@ export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
   const db = getDb();
-  const one = (sql: string, ...p: unknown[]) => (db.prepare(sql).get(...(p as never[])) as unknown as Record<string, number>);
-  const total = one("SELECT COUNT(*) c FROM companies").c;
-  const highly = one("SELECT COUNT(*) c FROM companies WHERE grade='A'").c;
-  const openEnq = one("SELECT COUNT(*) c FROM enquiries WHERE status NOT IN ('Won','Lost')").c;
-  const activeOpp = one("SELECT COUNT(*) c FROM opportunities WHERE stage NOT IN ('Won','Lost','Not Relevant')").c;
-  const quotesSent = one("SELECT COUNT(*) c FROM quotes WHERE status != 'Draft'").c;
-  const won = one("SELECT COUNT(*) c FROM opportunities WHERE stage='Won'").c;
-  const pipe = (db.prepare("SELECT COALESCE(SUM(value),0) v FROM opportunities WHERE stage NOT IN ('Won','Lost','Not Relevant')").get() as { v: number }).v;
-  const weighted = (db.prepare("SELECT COALESCE(SUM(value*probability/100.0),0) v FROM opportunities WHERE stage NOT IN ('Won','Lost','Not Relevant')").get() as { v: number }).v;
+  const one = async (sql: string, ...p: unknown[]) => ((await db.prepare(sql).get(...(p as never[]))) as unknown as Record<string, number>);
+  const total = (await one("SELECT COUNT(*) c FROM companies")).c;
+  const highly = (await one("SELECT COUNT(*) c FROM companies WHERE grade='A'")).c;
+  const openEnq = (await one("SELECT COUNT(*) c FROM enquiries WHERE status NOT IN ('Won','Lost')")).c;
+  const activeOpp = (await one("SELECT COUNT(*) c FROM opportunities WHERE stage NOT IN ('Won','Lost','Not Relevant')")).c;
+  const quotesSent = (await one("SELECT COUNT(*) c FROM quotes WHERE status != 'Draft'")).c;
+  const won = (await one("SELECT COUNT(*) c FROM opportunities WHERE stage='Won'")).c;
+  const pipe = (await db.prepare("SELECT COALESCE(SUM(value),0) v FROM opportunities WHERE stage NOT IN ('Won','Lost','Not Relevant')").get() as { v: number }).v;
+  const weighted = (await db.prepare("SELECT COALESCE(SUM(value*probability/100.0),0) v FROM opportunities WHERE stage NOT IN ('Won','Lost','Not Relevant')").get() as { v: number }).v;
 
   const regions = ["UAE", "Middle East", "Europe", "South Africa"];
-  const rows = (db.prepare("SELECT * FROM companies").all() as { country: string; grade: string; outreach_status: string }[]);
+  const rows = (await db.prepare("SELECT * FROM companies").all() as { country: string; grade: string; outreach_status: string }[]);
   const byRegion = regions.map((r) => {
     const inR = rows.filter((x) => (r === "UAE" ? x.country === "UAE" : regionForCountry(x.country) === r));
     return { region: r, buyers: inR.length, qualified: inR.filter((x) => x.grade === "A").length, contacted: inR.filter((x) => x.outreach_status !== "Not contacted").length };
   });
-  const opps = db.prepare("SELECT o.*, c.name cname, c.country FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE o.stage NOT IN ('Won','Lost','Not Relevant') ORDER BY o.value DESC LIMIT 8").all() as Record<string, unknown>[];
-  const followups = db.prepare("SELECT f.*, c.name cname FROM followups f JOIN companies c ON c.id=f.company_id WHERE f.done=0 ORDER BY f.due_date LIMIT 10").all() as Record<string, unknown>[];
-  const hot = db.prepare("SELECT * FROM companies WHERE grade='A' ORDER BY qual_score DESC LIMIT 6").all() as Record<string, unknown>[];
-  const recentEnq = db.prepare("SELECT e.*, c.name cname FROM enquiries e JOIN companies c ON c.id=e.company_id ORDER BY e.id DESC LIMIT 5").all() as Record<string, unknown>[];
+  const opps = await db.prepare("SELECT o.*, c.name cname, c.country FROM opportunities o JOIN companies c ON c.id=o.company_id WHERE o.stage NOT IN ('Won','Lost','Not Relevant') ORDER BY o.value DESC LIMIT 8").all() as Record<string, unknown>[];
+  const followups = await db.prepare("SELECT f.*, c.name cname FROM followups f JOIN companies c ON c.id=f.company_id WHERE f.done=0 ORDER BY f.due_date LIMIT 10").all() as Record<string, unknown>[];
+  const hot = await db.prepare("SELECT * FROM companies WHERE grade='A' ORDER BY qual_score DESC LIMIT 6").all() as Record<string, unknown>[];
+  const recentEnq = await db.prepare("SELECT e.*, c.name cname FROM enquiries e JOIN companies c ON c.id=e.company_id ORDER BY e.id DESC LIMIT 5").all() as Record<string, unknown>[];
 
   const kpis: [string, string | number][] = [
     ["Total buyers", total], ["A-grade buyers", highly], ["Active opportunities", activeOpp],

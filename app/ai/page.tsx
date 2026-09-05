@@ -6,11 +6,11 @@ export const dynamic = "force-dynamic";
 
 type SP = { company?: string; op?: string; contactName?: string; lastTouch?: string };
 
-function brief(companyId: number): { input: AIBriefInput; company: Record<string, unknown> } | null {
+async function brief(companyId: number): Promise<{ input: AIBriefInput; company: Record<string, unknown> } | null> {
   const db = getDb();
-  const c = db.prepare("SELECT * FROM companies WHERE id=?").get(companyId) as Record<string, unknown> | undefined;
+  const c = (await db.prepare("SELECT * FROM companies WHERE id=?").get(companyId)) as Record<string, unknown> | undefined;
   if (!c) return null;
-  const ev = db.prepare("SELECT * FROM lead_evidence WHERE company_id=? ORDER BY id DESC LIMIT 10").all(companyId) as Record<string, unknown>[];
+  const ev = await db.prepare("SELECT * FROM lead_evidence WHERE company_id=? ORDER BY id DESC LIMIT 10").all(companyId) as Record<string, unknown>[];
   const signals: string[] = [];
   if (c.products && String(c.products) !== "") signals.push(`Products: ${c.products}`);
   if (c.company_type) signals.push(`Type: ${c.company_type}`);
@@ -35,8 +35,8 @@ export default async function AIPage({ searchParams }: { searchParams: Promise<S
   const contactName = sp.contactName ?? "";
   const lastTouch = sp.lastTouch ?? "";
   const db = getDb();
-  const companies = db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
-  const loaded = companyId ? brief(companyId) : null;
+  const companies = await db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
+  const loaded = companyId ? await brief(companyId) : null;
   let result: string | string[] | null = null;
   if (loaded && op) {
     const base = loaded.input;

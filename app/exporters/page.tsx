@@ -9,7 +9,7 @@ export default async function Exporters({ searchParams }: { searchParams: Promis
   const marketF = (sp.market ?? "").toLowerCase();
   const productF = (sp.product ?? "").toLowerCase();
   const db = getDb();
-  let rows = db.prepare("SELECT * FROM exporters ORDER BY name").all() as Record<string, unknown>[];
+  let rows = await db.prepare("SELECT * FROM exporters ORDER BY name").all() as Record<string, unknown>[];
   if (marketF) rows = rows.filter((r) => String(r.export_markets ?? "").toLowerCase().includes(marketF) || String(r.name ?? "").toLowerCase().includes(marketF));
   if (productF) rows = rows.filter((r) => `${r.products} ${r.ginger_offering}`.toLowerCase().includes(productF));
 
@@ -21,7 +21,7 @@ export default async function Exporters({ searchParams }: { searchParams: Promis
     const certs = String(form.get("certs") ?? "").trim() || "Unknown";
     const label = name.startsWith("DEMO") ? "DEMO" : "MANUAL";
     const { getDb: gdb } = await import("@/lib/db");
-    gdb().prepare("INSERT INTO exporters(name,location,website,products,ginger_offering,export_markets,certs,source,evidence,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?)").run(
+    await gdb().prepare("INSERT INTO exporters(name,location,website,products,ginger_offering,export_markets,certs,source,evidence,notes,data_label) VALUES(?,?,?,?,?,?,?,?,?,?,?)").run(
       name, String(form.get("location") ?? ""), String(form.get("website") ?? "") || "Unknown",
       String(form.get("products") ?? ""), String(form.get("ginger_offering") ?? ""),
       String(form.get("export_markets") ?? ""), certs,

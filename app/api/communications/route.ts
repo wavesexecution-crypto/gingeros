@@ -19,14 +19,14 @@ export async function POST(req: Request) {
   const subject = String(body.subject ?? "");
   const text = String(body.body ?? "");
   const db = getDb();
-  const c = db.prepare("SELECT id FROM companies WHERE id=?").get(company_id) as { id: number } | undefined;
+  const c = (await db.prepare("SELECT id FROM companies WHERE id=?").get(company_id)) as { id: number } | undefined;
   if (!c) return NextResponse.json({ error: "Company not found" }, { status: 404 });
   // Log-only: no auto-send. Sending happens only via an explicitly connected email provider.
-  const r = db.prepare("INSERT INTO communications(company_id,channel,direction,subject,body,status,created_at) VALUES(?,?,?,?,?,?,?)").run(
+  const r = await db.prepare("INSERT INTO communications(company_id,channel,direction,subject,body,status,created_at) VALUES(?,?,?,?,?,?,?)").run(
     company_id, channel, "outbound", subject, text, "logged", nowISO()
   );
   const id = Number(r.lastInsertRowid);
-  db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
+  await db.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(
     company_id, channel.toLowerCase() === "email" ? "email" : "note",
     `${channel} logged`, subject || `${channel} logged (no auto-send)`, "Sales", nowISO()
   );

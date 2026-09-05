@@ -8,8 +8,8 @@ export default async function NewEnquiry({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const pre = sp.company ?? "";
   const db = getDb();
-  const companies = db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
-  const contacts = db.prepare("SELECT c.id, c.name, co.name AS cname FROM contacts c JOIN companies co ON co.id=c.company_id ORDER BY c.name").all() as Record<string, unknown>[];
+  const companies = await db.prepare("SELECT id, name, country FROM companies ORDER BY name").all() as Record<string, unknown>[];
+  const contacts = await db.prepare("SELECT c.id, c.name, co.name AS cname FROM contacts c JOIN companies co ON co.id=c.company_id ORDER BY c.name").all() as Record<string, unknown>[];
 
   async function create(form: FormData) {
     "use server";
@@ -17,7 +17,7 @@ export default async function NewEnquiry({ searchParams }: { searchParams: Promi
     if (!company_id) return;
     const contactRaw = String(form.get("contact_id") ?? "");
     const db2 = getDb();
-    const r = db2.prepare("INSERT INTO enquiries(company_id,contact_id,country,product,qty,packaging,destination,specs,certs,target_price,delivery,payment_terms,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
+    const r = await db2.prepare("INSERT INTO enquiries(company_id,contact_id,country,product,qty,packaging,destination,specs,certs,target_price,delivery,payment_terms,status,notes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(
       company_id, contactRaw ? Number(contactRaw) : null,
       String(form.get("country") ?? ""), String(form.get("product") ?? "Dry Ginger") || "Dry Ginger",
       String(form.get("qty") ?? ""), String(form.get("packaging") ?? ""), String(form.get("destination") ?? ""),
@@ -25,7 +25,7 @@ export default async function NewEnquiry({ searchParams }: { searchParams: Promi
       String(form.get("delivery") ?? ""), String(form.get("payment_terms") ?? ""),
       "New", String(form.get("notes") ?? ""), nowISO());
     const id = Number(r.lastInsertRowid);
-    db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, "enquiry", `Enquiry #${id} logged`, String(form.get("qty") ?? ""), "Sales", nowISO());
+    await db2.prepare("INSERT INTO activities(company_id,kind,title,body,owner,created_at) VALUES(?,?,?,?,?,?)").run(company_id, "enquiry", `Enquiry #${id} logged`, String(form.get("qty") ?? ""), "Sales", nowISO());
     redirect("/enquiries");
   }
 
